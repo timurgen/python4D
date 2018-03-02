@@ -24,13 +24,13 @@ class CFFIInstall(install):
 
 setup(
     zip_safe=False,
-    name="p4d",
+    name="python4D",
     version="1.7",
     install_requires=["cffi","python-dateutil" ],
     setup_requires=['cffi', 'python-dateutil' ],
     packages=find_packages(),
     # need to include these files to be able to build our shared library
-    package_data={'p4d': ['py_fourd.h'],},
+    package_data={'python4D': ['py_fourd.h'],},
     cmdclass={
         "build": CFFIBuild,
         "install": CFFIInstall,

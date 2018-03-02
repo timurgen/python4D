@@ -173,6 +173,6 @@ int fourd_field_to_string(FOURD_RESULT *res,unsigned int numCol,char **value,siz
 int fourd_errno(FOURD *cnx);
 const char * fourd_error(FOURD *cnx);
 
-/* Misc other C functions needed by the p4d driver */
+/* Misc other C functions needed by the python4D driver */
 void free(void *);
 
