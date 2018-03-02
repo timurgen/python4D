@@ -10,5 +10,6 @@ package.sh
 testMain.c
 dist
 *.egg-info
-virtualenv
+venv
 .idea
+.eggs
