@@ -8,7 +8,6 @@ import time as timemod
 import threading, glob, re
 import contextlib
 
-
 ########################################################################
 ## Python DB API Globals
 ########################################################################
@@ -51,13 +50,11 @@ def _create_modulename(cdef_sources, source, sys_version):
     k1 = k1.lstrip('0x').rstrip('L')
     k2 = hex(binascii.crc32(key[1::2]) & 0xffffffff)
     k2 = k2.lstrip('0').rstrip('L')
-    return '_Py4d_cffi_{0}{1}'.format(k1, k2)
+    return '_python4D_cffi_{0}{1}'.format(k1, k2)
 
 def _compile_module(*args, **kwargs):
-    raise RuntimeError(
-        "Attempted implicit compile of a cffi module. All cffi modules should "
-        "be pre-compiled at installation time."
-    )
+    raise RuntimeError('Attempted implicit compile of a cffi module. '
+                       'All cffi modules should be pre-compiled at installation time.')
 
 class LazyLoadLib(object):
     def __init__(self, ffi):
@@ -88,7 +85,7 @@ os.chdir(_FILE_PATH)
 os.chdir(os.pardir)
 
 #use the absolute path to load the file here so we don't have to worry about working directory issues
-_CDEF = open("{}/py_fourd.h".format(_FILE_PATH)).read()
+_CDEF = open("{}/python4D.h".format(_FILE_PATH)).read()
 
 ffi.cdef(_CDEF)
 
@@ -101,7 +98,7 @@ source_files = glob.glob('lib4d_sql/*.c')
 ffi.verifier = Verifier(ffi, _SOURCE,
                        modulename=_create_modulename(_CDEF, _SOURCE, sys.version),
                        sources=source_files,
-                       include_dirs=['lib4d_sql', 'py4d/lib4d_sql'])
+                       include_dirs=['lib4d_sql', 'python4D/lib4d_sql'])
 
 #ffi.verifier.compile_module = _compile_module
 #ffi.verifier._compile_module = _compile_module
@@ -118,29 +115,38 @@ os.chdir(_CWD)
 class Warning(Exception):
     pass
 
+
 class Error(Exception):
     pass
+
 
 class InterfaceError(Error):
     pass
 
+
 class DatabaseError(Error):
     pass
+
 
 class DataError(DatabaseError):
     pass
 
+
 class OperationalError(DatabaseError):
     pass
+
 
 class IntegrityError(DatabaseError):
     pass
 
+
 class InternalError(DatabaseError):
     pass
 
+
 class ProgrammingError(DatabaseError):
     pass
+
 
 class NotSupportedError(DatabaseError):
     pass
@@ -150,28 +156,30 @@ class NotSupportedError(DatabaseError):
 ## Data type classes
 ########################################################################
 def DateFromTicks(ticks):
-    return Date(*timemod.localtime(ticks)[:3])
+    #return Date(*timemod.localtime(ticks)[:3])
+    pass
+
 
 def TimeFromTicks(ticks):
-    return Time(*timemod.localtime(ticks)[3:6])
+    #return Time(*timemod.localtime(ticks)[3:6])
+    pass
+
 
 def TimestampFromTicks(ticks):
-    return Timestamp(*timemod.localtime(ticks)[:6])
+    #return Timestamp(*timemod.localtime(ticks)[:6])
+    pass
 
 ########################################################################
 class Binary(bytes):
-    """"""
     pass
-
 
 ########################################################################
 ## Cursor Object
 ########################################################################
-class py4d_cursor(object):
+class python4D_cursor(object):
     """"""
     arraysize = 1
     pagesize = 100
-
     __resulttype = None
     __prepared = False
     __closed = False
@@ -186,17 +194,14 @@ class py4d_cursor(object):
 
     @property
     def rowcount(self):
-        """"""
         return self.__rowcount
 
     #----------------------------------------------------------------------
     def setinputsizes(self):
-        """"""
         pass
 
     #----------------------------------------------------------------------
     def setoutputsize(self):
-        """"""
         pass
 
     #----------------------------------------------------------------------
@@ -207,7 +212,6 @@ class py4d_cursor(object):
         self.__rownumber = None
         self.result = None
         self.fourd_query = None
-
         self.fourdconn = fourdconn
         self.connection = connection
         self.lib4d_sql = lib4d._lib  #so we can address it directly
@@ -235,9 +239,6 @@ class py4d_cursor(object):
         isinstance(source, str)
         result = "{}{}{}".format(source[:i],replace,source[i+len(search):])
         return result
-
-
-
 
     #----------------------------------------------------------------------
     def execute(self, query, params=[], describe=True):
@@ -290,8 +291,8 @@ class py4d_cursor(object):
                 break
 
         # Start a new transaction if we are not already in one
-        if not self.connection.in_transaction:
-            self.connection.__start_transaction__()
+        #if not self.connection.in_transaction:
+            #self.connection.__start_transaction__()
 
         if self.__prepared == False:  #Should always be false, unless we are running an executemany
             #clean up anything from a previous query, if needed.
@@ -621,15 +622,15 @@ class py4d_cursor(object):
         if self.fourd_query is not None and self.fourd_query != ffi.NULL:
             self.lib4d_sql.fourd_free_statement(self.fourd_query)
 
-
-
 ########################################################################
 ## Connection object
 ########################################################################
-class py4d_connection:
+class python4D_connection:
     """Connection object for a 4D database"""
 
     in_transaction = False
+    connected = False
+    __private_cursor__ = None
 
     #----------------------------------------------------------------------
     def __init__(self, host, user, password, database, port):
@@ -637,7 +638,7 @@ class py4d_connection:
         self.connptr = lib4d_sql.fourd_init()
         self.cursors = []
         if self.connptr == ffi.NULL:
-            raise InterfaceError("Unable to intialize connection object")
+            raise InterfaceError("Unable to intialize connection object!")
 
         connected = lib4d_sql.fourd_connect(self.connptr,
                                             host.encode('utf-8'),
@@ -647,7 +648,7 @@ class py4d_connection:
                                             port)
         if connected != 0:
             self.connected = False
-            raise OperationalError("Unable to connect to 4D Server")
+            raise OperationalError("Unable to connect to 4D Server!")
         else:
             self.connected = True
             self.__private_cursor__ = self.cursor()
@@ -659,6 +660,9 @@ class py4d_connection:
             return;  #already in transaction, don't do anything
         self.in_transaction = True
         self.__private_cursor__.execute("START TRANSACTION")
+
+    def startTransation(self):
+        self.__start_transaction__()
 
     #----------------------------------------------------------------------
     def close(self):
@@ -699,7 +703,7 @@ class py4d_connection:
 
     #----------------------------------------------------------------------
     def cursor(self):
-        cursor = py4d_cursor(self, self.connptr, lib4d_sql)
+        cursor = python4D_cursor(self, self.connptr, lib4d_sql)
         self.cursors.append(cursor)
         return cursor
 
@@ -718,7 +722,6 @@ class py4d_connection:
         else:
             if self.in_transaction:
                 self.commit()
-
 
 
 #----------------------------------------------------------------------
@@ -763,7 +766,7 @@ def connect(dsn=None, user=None, password=None, host=None, database=None, port=N
             connect_args[key] = ""  # use an empty string if the argument is not provided. For example, if you don't need a user and password to log in.
 
     # Try to connect to the database
-    fourd_connection = py4d_connection(**connect_args)
+    fourd_connection = python4D_connection(**connect_args)
 
     return fourd_connection
 

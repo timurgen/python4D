@@ -5,8 +5,8 @@ from distutils.ccompiler import new_compiler
 import os
 
 def get_ext_modules():
-    import p4d
-    return [p4d.ffi.verifier.get_extension()]
+    import python4D
+    return [python4D.ffi.verifier.get_extension()]
 
 class CFFIBuild(build):
     #----------------------------------------------------------------------
@@ -26,11 +26,11 @@ setup(
     zip_safe=False,
     name="python4D",
     version="1.7",
-    install_requires=["cffi","python-dateutil" ],
-    setup_requires=['cffi', 'python-dateutil' ],
+    install_requires=['cffi', 'python-dateutil'],
+    setup_requires=['cffi', 'python-dateutil'],
     packages=find_packages(),
     # need to include these files to be able to build our shared library
-    package_data={'python4D': ['py_fourd.h'],},
+    package_data={'python4D': ['python4D.h']},
     cmdclass={
         "build": CFFIBuild,
         "install": CFFIInstall,

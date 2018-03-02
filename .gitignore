@@ -1,13 +1,7 @@
-profile_output
-testP4D.py
-testODBC.py
-*.xcodeproj
 .DS_Store
 __pycache__
-DerivedData
 *.pyc
-package.sh
-testMain.c
+build
 dist
 *.egg-info
 venv
