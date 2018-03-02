@@ -25,7 +25,7 @@ class CFFIInstall(install):
 setup(
     zip_safe=False,
     name="python4D",
-    version="1.7",
+    version="1.9",
     install_requires=['cffi', 'python-dateutil'],
     setup_requires=['cffi', 'python-dateutil'],
     packages=find_packages(),
@@ -37,7 +37,7 @@ setup(
     },
     author="Marciano Barros",
     author_email="marcianobarros20@hotmail.com",
-    url="https://github.com/marcianobarros20/p4d",
+    url="https://github.com/marcianobarros20/python4D",
     description="Python DBI module for the 4D database",
     long_description="This module provides a Python Database API v2.0 compliant driver for the 4D (4th Dimension, http://www.4d.com ) database. Based off of C library code provided by 4th Dimension and implemented using CFFI",
     license='BSD',
