@@ -20,7 +20,9 @@ typedef enum
 FOURD_TYPE typeFromString(const char *type);
 const char* stringFromType(FOURD_TYPE type);
 
+
 int vk_sizeof(FOURD_TYPE type);
+
 
 typedef enum
 {
@@ -38,12 +40,39 @@ typedef short FOURD_BYTE;
 typedef short FOURD_WORD;
 typedef int FOURD_LONG;
 typedef long long FOURD_LONG8;
-typedef double FOURD_REAL;
-typedef struct{int exp;unsigned char sign;int data_length;void* data;}FOURD_FLOAT;
-typedef struct{short year;unsigned char mounth;unsigned char day;unsigned int milli;}FOURD_TIMESTAMP;
+typedef	double FOURD_REAL;
+typedef	struct{int exp;char sign;int data_length;void* data;}FOURD_FLOAT;
+typedef	struct{short year;char mounth;char day;unsigned int milli;}FOURD_TIMESTAMP;
 typedef long long FOURD_DURATION;//in milliseconds
-typedef struct{int length;char *data;}FOURD_STRING;
+typedef struct{int length;unsigned char *data;}FOURD_STRING;
 typedef struct{int length;void *data;}FOURD_BLOB;
+typedef struct{int length;void *data;}FOURD_IMAGE;
+
+typedef struct{
+
+	int socket;
+
+	int init;		/*boolean*/
+	int connected;	/*boolean*/
+
+	/* status */
+	int status;//1 OK, 0 KO
+	FOURD_LONG8 error_code;
+	char error_string[2048];
+
+	/* updated row */
+	FOURD_LONG8 updated_row;
+
+	/*Command number used for*/
+	/* LOGIN, STATEMENT, ETC*/
+	unsigned int id_cnx;
+
+	/* PREFERRED-IMAGE-TYPES */
+	char *preferred_image_types;
+	int timeout;
+
+}FOURD;
+
 typedef struct{
 	FOURD_TYPE type;
 	char null;//0 not null, 1 null
@@ -62,30 +91,6 @@ typedef struct{
 }FOURD_ROW_TYPE;
 
 typedef struct{
-	int socket;
-
-	int init;		/*boolean*/
-	int connected;	/*boolean*/
-
-	/*deprecated: use FOURD_RESULT*/
-	/*char reponse[BUFFER_LENGTH];
-	int reponse_len;*/
-
-	/* status */
-	int status;//1 pour OK, 0 pour KO
-	FOURD_LONG8 error_code;
-	char error_string[2048];
-
-	/* updated row */
-	FOURD_LONG8 updated_row;
-
-	/* PREFERRED-IMAGE-TYPES */
-	char *preferred_image_types;
-	int timeout;
-
-} FOURD;
-
-typedef struct{
 	FOURD *cnx;
 	char *header;
 	unsigned int header_size;
@@ -100,10 +105,10 @@ typedef struct{
 	  UPDATE_COUNT for insert, update, delete*/
 	FOURD_RESULT_TYPE resultType;
 
-	/*Id of statement used with 4D SQL-serveur*/
+	/*Id of statement used with 4D SQL-server*/
 	int id_statement;
-	/*Id commande use for request */
-	int id_commande;
+	/*Id of command use for request */
+	int id_command;
 	/*updateability is true or false */
 	int updateability;
 
@@ -111,7 +116,7 @@ typedef struct{
 	unsigned int row_count;
 
 	/*row count in data buffer
-	  for little select, row_count_sent = row_cout
+	  for little select, row_count_sent = row_count
 	  for big select, row_count_sent = 100 for the first result_set
 	*/
 	unsigned int row_count_sent;
@@ -128,23 +133,22 @@ typedef struct{
 	FOURD_ELEMENT *elmt;
 
 	/*current row index*/
-	unsigned int numRow;
+	int numRow;
 }FOURD_RESULT;
 
 typedef struct {
-    FOURD *cnx;
-    char *query;	/*MAX_HEADER_SIZE is using because the query is insert into header*/
-    unsigned int nb_element;
-    unsigned int nbAllocElement;
-    FOURD_ELEMENT *elmt;
-    /* PREFERRED-IMAGE-TYPES */
-    char *preferred_image_types;
+	FOURD *cnx;
+	char *query;	/*MAX_HEADER_SIZE is using because the query is insert into header*/
+	unsigned int nb_element;
+	unsigned int nbAllocElement;
+	FOURD_ELEMENT *elmt;
+	/* PREFERRED-IMAGE-TYPES */
+	char *preferred_image_types;
 }FOURD_STATEMENT;
 
-FOURD* fourd_init();
 
+FOURD* fourd_init(void);
 int fourd_connect(FOURD *cnx,const char *host,const char *user,const char *password,const char *base,unsigned int port);
-
 FOURD_RESULT *fourd_query(FOURD *cnx,const char *query);
 FOURD_LONG8 fourd_num_rows(FOURD_RESULT *result);
 FOURD_LONG8 fourd_affected_rows(FOURD *cnx);
@@ -173,6 +177,6 @@ int fourd_field_to_string(FOURD_RESULT *res,unsigned int numCol,char **value,siz
 int fourd_errno(FOURD *cnx);
 const char * fourd_error(FOURD *cnx);
 
-/* Misc other C functions needed by the python4D driver */
+/* Misc other C functions needed by the p4d driver */
 void free(void *);
 

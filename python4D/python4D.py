@@ -7,6 +7,7 @@ from collections import defaultdict
 import time as timemod
 import threading, glob, re
 import contextlib
+from struct import unpack
 
 ########################################################################
 ## Python DB API Globals
@@ -96,9 +97,9 @@ _SOURCE = """
 source_files = glob.glob('lib4d_sql/*.c')
 
 ffi.verifier = Verifier(ffi, _SOURCE,
-                       modulename=_create_modulename(_CDEF, _SOURCE, sys.version),
-                       sources=source_files,
-                       include_dirs=['lib4d_sql', 'python4D/lib4d_sql'])
+                        modulename=_create_modulename(_CDEF, _SOURCE, sys.version),
+                        sources=source_files,
+                        include_dirs=['lib4d_sql', 'python4D/lib4d_sql'])
 
 #ffi.verifier.compile_module = _compile_module
 #ffi.verifier._compile_module = _compile_module
@@ -292,7 +293,7 @@ class python4D_cursor(object):
 
         # Start a new transaction if we are not already in one
         #if not self.connection.in_transaction:
-            #self.connection.__start_transaction__()
+        #self.connection.__start_transaction__()
 
         if self.__prepared == False:  #Should always be false, unless we are running an executemany
             #clean up anything from a previous query, if needed.
@@ -313,7 +314,7 @@ class python4D_cursor(object):
 
         # Some data types need special handling, but most we can just convert to a string.
         # All strings need UTF-16LE encoding.
-        fourdtypes = defaultdict(lambda:self.lib4d_sql.VK_STRING,
+        fourdtypes = defaultdict(lambda: self.lib4d_sql.VK_STRING,
                                  {str: self.lib4d_sql.VK_STRING,
                                   unicode: self.lib4d_sql.VK_STRING,
                                   bool: self.lib4d_sql.VK_BOOLEAN,
@@ -356,11 +357,10 @@ class python4D_cursor(object):
                 manual_clear = True
 
             else:
-                itemstr =  str(parameter)
+                itemstr = str(parameter)
                 param = self.lib4d_sql.fourd_create_string(itemstr.encode('UTF-16LE'),
                                                            len(itemstr))
                 manual_clear = True
-
 
             bound = self.lib4d_sql.fourd_bind_param(self.fourd_query, idx, fourd_type, param)
             if bound != 0:
@@ -385,7 +385,7 @@ class python4D_cursor(object):
         if self.__resulttype == self.lib4d_sql.RESULT_SET:
             self.__rowcount = self.lib4d_sql.fourd_num_rows(self.result)
         elif self.__resulttype == self.lib4d_sql.UPDATE_COUNT:
-            self.__rowcount = self.lib4d_sql.fourd_affected_rows(self.fourdconn);
+            self.__rowcount = self.lib4d_sql.fourd_affected_rows(self.fourdconn)
         else:
             self.__rowcount = -1  # __resulttype is an enum, so this shouldn't happen.
 
@@ -478,7 +478,7 @@ class python4D_cursor(object):
 
         self.__rownumber = self.result.numRow
 
-        numcols = self.lib4d_sql.fourd_num_columns(self.result);
+        numcols = self.lib4d_sql.fourd_num_columns(self.result)
         strlen = ffi.new("size_t*")
         inbuff = ffi.new("char*[1]")
 
@@ -486,8 +486,8 @@ class python4D_cursor(object):
         for col in range(numcols):
             fieldtype=self.lib4d_sql.fourd_get_column_type(self.result,col)
             if self.lib4d_sql.fourd_field(self.result,col)==ffi.NULL:
-                        row.append(None)
-                        continue
+                row.append(None)
+                continue
 
             conver_res = self.lib4d_sql.fourd_field_to_string(self.result, col, inbuff, strlen)
             strdata = inbuff[0]
@@ -504,14 +504,30 @@ class python4D_cursor(object):
                 row.append(bool(boolval[0]))
             #numerical types
             elif fieldtype == self.lib4d_sql.VK_LONG or \
-                 fieldtype == self.lib4d_sql.VK_LONG8 or \
-                 fieldtype == self.lib4d_sql.VK_WORD:
+                    fieldtype == self.lib4d_sql.VK_LONG8 or \
+                    fieldtype == self.lib4d_sql.VK_WORD:
                 intval = self.lib4d_sql.fourd_field_long(self.result, col)
                 row.append(intval[0])
-            elif fieldtype == self.lib4d_sql.VK_REAL or fieldtype == self.lib4d_sql.VK_FLOAT:
+            elif fieldtype == self.lib4d_sql.VK_REAL:
                 if output == b'':
                     row.append(None)  #Empty output=null
                 row.append(float(output))
+            elif fieldtype == self.lib4d_sql.VK_FLOAT:
+                field = self.lib4d_sql.fourd_field(self.result, col)
+                if field != ffi.NULL:
+                    # Use cast to let the system know this is a FLOAT type field
+                    field = ffi.cast("FOURD_FLOAT *", field)
+                    fieldlexp = field.exp
+                    fieldlsign = unpack('<b', field.sign)[0]  # LE signed char
+                    fieldlen = field.data_length
+                    fielddata = ffi.buffer(field.data, fieldlen)[:]
+                    num = "0."
+                    for el in fielddata:
+                        num = num + str(el)
+                    num = float(num) * fieldlsign * pow(10, fieldlexp)
+                    row.append(num)
+                else:
+                    row.append(None)
             elif fieldtype == self.lib4d_sql.VK_TIMESTAMP:
                 if output == '0000/00/00 00:00:00.000':
                     dateval = None
@@ -532,11 +548,22 @@ class python4D_cursor(object):
                 midnight = datetime(1, 1, 1)  #we are going to ignore the date anyway
                 timeval = midnight + durationval
                 row.append(timeval.time())
-            elif fieldtype == self.lib4d_sql.VK_BLOB or fieldtype == self.lib4d_sql.VK_IMAGE:
+            elif fieldtype == self.lib4d_sql.VK_BLOB:
                 field = self.lib4d_sql.fourd_field(self.result, col)
                 if field != ffi.NULL:
                     # Use cast to let the system know this is a BLOB type field
                     field = ffi.cast("FOURD_BLOB *", field)
+                    fieldlen = field.length
+                    fielddata = ffi.buffer(field.data, fieldlen)[:]
+                    blobbuff = Binary(fielddata)
+                    row.append(blobbuff)
+                else:
+                    row.append(None)
+            elif fieldtype == self.lib4d_sql.VK_IMAGE:
+                field = self.lib4d_sql.fourd_field(self.result, col)
+                if field != ffi.NULL:
+                    # Use cast to let the system know this is a BLOB type field
+                    field = ffi.cast("FOURD_IMAGE *", field)
                     fieldlen = field.length
                     fielddata = ffi.buffer(field.data, fieldlen)[:]
                     blobbuff = Binary(fielddata)
@@ -653,11 +680,15 @@ class python4D_connection:
             self.connected = True
             self.__private_cursor__ = self.cursor()
 
+    # ----------------------------------------------------------------------
+    def __del__(self):
+        self.close()
+
     #----------------------------------------------------------------------
     def __start_transaction__(self):
         """"""
         if self.in_transaction:
-            return;  #already in transaction, don't do anything
+            return  #already in transaction, don't do anything
         self.in_transaction = True
         self.__private_cursor__.execute("START TRANSACTION")
 
@@ -722,7 +753,6 @@ class python4D_connection:
         else:
             if self.in_transaction:
                 self.commit()
-
 
 #----------------------------------------------------------------------
 def connect(dsn=None, user=None, password=None, host=None, database=None, port=None):

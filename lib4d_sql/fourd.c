@@ -1,57 +1,27 @@
-/*
-  +----------------------------------------------------------------------+
-  | lib4D_SQL                                                            |
-  +----------------------------------------------------------------------+
-  | Copyright (c) 2009 The PHP Group                                     |
-  +----------------------------------------------------------------------+
-  |                                                                      |
-  | This source file is subject to version 3.01 of the PHP license,      |
-  | that is bundled with this package in the file LICENSE, and is        |
-  | available through the world-wide-web at the following url:           |
-  | http://www.php.net/license/3_01.txt                                  |
-  |                                                                      |
-  | Its original copy is usable under several licenses and is available  |
-  | through the world-wide-web at the following url:                     |
-  | http://freshmeat.net/projects/lib4d_sql                              |
-  |                                                                      |
-  | Unless required by applicable law or agreed to in writing, software  |
-  | distributed under the License is distributed on an "AS IS" BASIS,    |
-  | WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or      |
-  | implied. See the License for the specific language governing         |
-  | permissions and limitations under the License.                       |
-  +----------------------------------------------------------------------+
-  | Contributed by: 4D <php@4d.fr>, http://www.4d.com                    |
-  |                 Alter Way, http://www.alterway.fr                    |
-  | Authors: Stephane Planquart <stephane.planquart@o4db.com>            |
-  |          Alexandre Morgaut <php@4d.fr>                               |
-  +----------------------------------------------------------------------+
-*/
-
 #include "fourd.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 #include "fourd.h"
 #include "fourd_int.h"
 
 FOURD* fourd_init()
 {
-	//int iResult=0;
 	FOURD* cnx=calloc(1,sizeof(FOURD));
-
 	cnx->socket = INVALID_SOCKET;
 	cnx->connected=0;
 	cnx->init=0;
-	#ifdef WIN32
-	// Initialize Winsock
+	cnx->id_cnx=0;
+#ifdef WIN32
+	int iResult=0;
+    // Initialize Winsock
     iResult = WSAStartup(MAKEWORD(2,2), &cnx->wsaData);
     if (iResult != 0) {
-        Printf("WSAStartup failed: %d\n", iResult);
+        if ( VERBOSE == 1)
+            Printf("WSAStartup failed: %d\n", iResult);
         return NULL;
     }
-  #endif
+#endif
 	cnx->init=1;
 	fourd_set_preferred_image_types(cnx,DEFAULT_IMAGE_TYPE);
 	return cnx;
@@ -61,55 +31,69 @@ int fourd_connect(FOURD *cnx,const char *host,const char *user,const char *passw
 {
 	if(!cnx->init)
 	{
-		//not init
-		Printferr("Erreur: FOURD object did not initialised\n");
+		if (VERBOSE == 1)
+			Printferr("Error: FOURD object did not initialised\n");
+
 		cnx->error_code=-1;
-		strncpy_s(cnx->error_string,2048,"FOURD object did not initialised",2048);
+		strncpy_s(cnx->error_string,ERROR_STRING_LENGTH,"FOURD object did not initialised",ERROR_STRING_LENGTH);
 		return 1;
 	}
+
 	if(cnx->connected)
 	{
-		//deja connecter
-		Printferr("Erreur: already connected\n");
+		if (VERBOSE == 1)
+			Printferr("Error: already connected\n");
+
 		cnx->error_code=-1;
-		strncpy_s(cnx->error_string,2048,"Already connected",2048);
+		strncpy_s(cnx->error_string,ERROR_STRING_LENGTH,"Already connected",ERROR_STRING_LENGTH);
 		return 1;
 	}
-	if(socket_connect_timeout(cnx,host,port,15))
+
+	if(socket_connect_timeout(cnx,host,port,SOCKET_TIMEOUT))
 	{
-		//erreur de connection
-		Printferr("Erreur in socket_connect\n");
+		if (VERBOSE == 1)
+			Printferr("Error in socket_connect\n");
+
 		cnx->connected=0;
-		//cnx->error_code=-1;
-		//strncpy_s(cnx->error_string,2048,"Error during connection",2048);
+		cnx->error_code=-1;
+		strncpy_s(cnx->error_string,ERROR_STRING_LENGTH,"Error during connection",ERROR_STRING_LENGTH);
 		return 1;
 	}
+
 	if(dblogin(cnx,1,user,((password==NULL)?"":password),cnx->preferred_image_types)!=0)
 	{
-		//erreur de login
-		Printferr("Erreur: in login function\n");
+		if (VERBOSE == 1)
+			Printferr("Error: in login function\n");
+
 		cnx->connected=0;
-		if(cnx->error_code==0) {
+		if(cnx->error_code==0)
+		{
 			cnx->error_code=-1;
-			strncpy_s(cnx->error_string,2048,"Error during login",2048);
+			strncpy_s(cnx->error_string,ERROR_STRING_LENGTH,"Error during login",ERROR_STRING_LENGTH);
 		}
 		return 1;
 	}
+
 	cnx->connected=1;
-	//Printferr("Erreur: not erreur\n");
 	cnx->error_code=0;
-	strncpy_s(cnx->error_string,2048,"",2048);
+	strncpy_s(cnx->error_string,ERROR_STRING_LENGTH,"",ERROR_STRING_LENGTH);
 	return 0;
 }
+
 int fourd_close(FOURD *cnx)
 {
-	if(dblogout(cnx,4)!=0)
+	cnx->id_cnx++;
+	if(dblogout(cnx,cnx->id_cnx)!=0)
 		return 1;
-	if(quit(cnx,5)!=0)
+
+	cnx->id_cnx++;
+	if(quit(cnx,cnx->id_cnx)!=0)
 		return 1;
+
 	socket_disconnect(cnx);
 	return 0;
 }
+
 void fourd_free(FOURD* cnx)
 {
 #ifdef WIN32
@@ -126,30 +110,35 @@ void fourd_free(FOURD* cnx)
 	}
 }
 
-
 FOURD_LONG8 fourd_affected_rows(FOURD *cnx)
 {
 	return cnx->updated_row;
 }
+
 int fourd_errno(FOURD *cnx)
 {
 	return (int)cnx->error_code;
 }
+
 const char * fourd_error(FOURD *cnx)
 {
 	return cnx->error_string;
 }
+
 int fourd_exec(FOURD *cnx,const char *query)
 {
-	return _query(cnx,3,query,NULL,cnx->preferred_image_types,100);
+	cnx->id_cnx++;
+	return _query(cnx,cnx->id_cnx,query,NULL,cnx->preferred_image_types,PAGE_SIZE);
 }
+
 FOURD_RESULT* fourd_query(FOURD *cnx,const char *query)
 {
 	FOURD_RESULT* result;
-	
+
 	result=calloc(1,sizeof(FOURD_RESULT));
 	result->cnx=cnx;
-	if(_query(cnx,3,query,result,cnx->preferred_image_types,100)==0)
+	cnx->id_cnx++;
+	if(_query(cnx,cnx->id_cnx,query,result,cnx->preferred_image_types,PAGE_SIZE)==0)
 	{
 		result->numRow=-1;
 		return result;
@@ -160,72 +149,101 @@ FOURD_RESULT* fourd_query(FOURD *cnx,const char *query)
 		return NULL;
 	}
 }
+
 void fourd_free_result(FOURD_RESULT *res)
 {
-	if(res!=NULL){
+	if(res!=NULL)
+	{
 		if(res->elmt!=NULL)
 			_free_data_result(res);
-		
+
 		if(res->header!=NULL)
 			Free(res->header);
-		
+
 		Free(res->row_type.Column);
 		Free(res);
 	}
 }
+
 int fourd_next_row(FOURD_RESULT *res)
 {
 	res->numRow++;
 	if(res->numRow>=res->row_count)
 		return 0;	/*error*/
-	if(res->numRow > res->first_row+res->row_count_sent-1) { /*row out of local result_set but in serveur statement */
-		if(_fetch_result(res,123))
+
+	if(res->numRow > res->first_row+res->row_count_sent-1) { /*row out of local result_set but in server statement */
+		res->cnx->id_cnx++;
+		if(_fetch_result(res,res->cnx->id_cnx))
 			return 0;
 	}
 	return 1;
 }
+
 int fourd_close_statement(FOURD_RESULT *res)
 {
-	if(close_statement(res,7)!=0)
+	res->cnx->id_cnx++;
+	if(close_statement(res,res->cnx->id_cnx)!=0)
 		return 1;
 	return 0;
 }
+
 FOURD_LONG * fourd_field_long(FOURD_RESULT *res,unsigned int numCol)
 {
 	unsigned int nbCol=res->row_type.nbColumn;
-	//unsigned int nbRow=res->row_count;
+	unsigned int nbRow=res->row_count;
 	FOURD_ELEMENT *elmt;
 	unsigned int indexElmt=0;	/*index of element in table <> numRow*nbCol + numCol */
-	//if(res->numRow>=nbRow)	//what can is do in this case...
+
+	if(res->numRow>=nbRow){
+		res->cnx->error_code=-1;
+		sprintf_s(res->cnx->error_string,ERROR_STRING_LENGTH,"Num Row out of bounds",ERROR_STRING_LENGTH);
+		return 0;
+	}
+	if(numCol>=nbCol){
+		res->cnx->error_code=-1;
+		sprintf_s(res->cnx->error_string,ERROR_STRING_LENGTH,"Num Column out of bounds",ERROR_STRING_LENGTH);
+		return 0;
+	}
+
 	indexElmt=(res->numRow-res->first_row)*nbCol+numCol;
 	elmt=&(res->elmt[indexElmt]);
 	if(elmt->null==0)
 	{
-		//FOURD_LONG x=*((int *)elmt->pValue);
-		//printf("/////%d//////",x);
 		return (FOURD_LONG *)elmt->pValue;
 	}
+
 	return 0;
 }
+
 FOURD_STRING * fourd_field_string(FOURD_RESULT *res,unsigned int numCol)
 {
 	int nbCol=res->row_type.nbColumn;
-	//int nbRow=res->row_count;
+	int nbRow=res->row_count;
 	unsigned int indexElmt=0;	/*index of element in table <> numRow*nbCol + numCol */
 	FOURD_ELEMENT *elmt=NULL;
-	//if(res->numRow>=nbRow)	//what can is do in this case...
-	//	return NULL;
+
+	if(res->numRow>=nbRow){
+		res->cnx->error_code=-1;
+		sprintf_s(res->cnx->error_string,ERROR_STRING_LENGTH,"Num Row out of bounds",ERROR_STRING_LENGTH);
+		return NULL;
+	}
+	if(numCol>=nbCol){
+		res->cnx->error_code=-1;
+		sprintf_s(res->cnx->error_string,ERROR_STRING_LENGTH,"Num Column out of bounds",ERROR_STRING_LENGTH);
+		return NULL;
+	}
+
 	indexElmt=(res->numRow-res->first_row)*nbCol+numCol;
 	elmt=&(res->elmt[indexElmt]);
 	if(elmt->null==0)
 	{
-		//FOURD_STRING x=*((int *)elmt->pValue);
-		//printf("/////%d//////",x);
 		FOURD_STRING *x=(FOURD_STRING *)elmt->pValue;
 		return x;
 	}
+
 	return NULL;
 }
+
 void * fourd_field(FOURD_RESULT *res,unsigned int numCol)
 {
 	unsigned int nbCol=res->row_type.nbColumn;
@@ -233,16 +251,17 @@ void * fourd_field(FOURD_RESULT *res,unsigned int numCol)
 	unsigned int indexElmt=0;	/*index of element in table <> numRow*nbCol + numCol */
 	FOURD_ELEMENT *elmt=NULL;
 
-	if(res->numRow>=nbRow){	
+	if(res->numRow>=nbRow){
 		res->cnx->error_code=-1;
-		sprintf_s(res->cnx->error_string,2048,"num Row out of bounds",2048);
+		sprintf_s(res->cnx->error_string,ERROR_STRING_LENGTH,"Num Row out of bounds",ERROR_STRING_LENGTH);
 		return NULL;
 	}
 	if(numCol>=nbCol){
 		res->cnx->error_code=-1;
-		sprintf_s(res->cnx->error_string,2048,"num Column out of bounds",2048);
+		sprintf_s(res->cnx->error_string,ERROR_STRING_LENGTH,"Num Column out of bounds",ERROR_STRING_LENGTH);
 		return NULL;
 	}
+
 	indexElmt=(res->numRow-res->first_row)*nbCol+numCol;
 
 	elmt=&(res->elmt[indexElmt]);
@@ -258,18 +277,18 @@ int fourd_field_to_string(FOURD_RESULT *res,unsigned int numCol,char **value,siz
 	unsigned int nbRow=res->row_count;
 	FOURD_ELEMENT *elmt=NULL;
 	unsigned int indexElmt=0;	/*index of element in table <> numRow*nbCol + numCol */
-	if(res->numRow>=nbRow){	
+	if(res->numRow>=nbRow){
 		*value=NULL;
 		*len=0;
 		res->cnx->error_code=-1;
-		sprintf_s(res->cnx->error_string,2048,"num Row out of bounds",2048);
+		sprintf_s(res->cnx->error_string,ERROR_STRING_LENGTH,"Num Row out of bounds",ERROR_STRING_LENGTH);
 		return 0;
 	}
 	if(numCol>=nbCol){
 		*value=NULL;
 		*len=0;
 		res->cnx->error_code=-1;
-		sprintf_s(res->cnx->error_string,2048,"num Column out of bounds",2048);
+		sprintf_s(res->cnx->error_string,ERROR_STRING_LENGTH,"Num Column out of bounds",ERROR_STRING_LENGTH);
 		return 0;
 	}
 	indexElmt=(res->numRow-res->first_row)*nbCol+numCol;
@@ -280,39 +299,36 @@ int fourd_field_to_string(FOURD_RESULT *res,unsigned int numCol,char **value,siz
 	}
 	else {
 		switch(elmt->type) {
-		case VK_BOOLEAN:
+			case VK_BOOLEAN:
 			{
 				*value=calloc(2,sizeof(char));
 				sprintf_s(*value,2,"%s",(*((FOURD_BOOLEAN *)elmt->pValue)==0?"1":"0"));
 				*len=strlen(*value);
 				return 1;
 			}
-		case VK_BYTE:
-		case VK_WORD:
-		case VK_LONG:
-		case VK_LONG8:
-		case VK_DURATION:
+			case VK_BYTE:
+			case VK_WORD:
+			case VK_LONG:
+			case VK_LONG8:
+			case VK_DURATION:
 			{
 				*value=calloc(22,sizeof(char));
 				sprintf_s(*value,22,"%d",*((FOURD_LONG *)elmt->pValue));
 				*len=strlen(*value);
 				return 1;
 			}
-			break;
-		case VK_REAL:
+			case VK_REAL:
 			{
-				*value=calloc(64,sizeof(char));	
+				*value=calloc(64,sizeof(char));
 				sprintf_s(*value,64,"%lf",*((FOURD_REAL *)elmt->pValue));
 				*len=strlen(*value);
 				return 1;
 			}
-			break;
-		case VK_FLOAT:
-			//Varying length
-			return 0;
-			break;
-		case VK_TIME:
-		case VK_TIMESTAMP:
+			case VK_FLOAT:
+				//Varying length
+				return 0;
+			case VK_TIME:
+			case VK_TIMESTAMP:
 			{
 				FOURD_TIMESTAMP *t=elmt->pValue;
 				unsigned int h,m,s,milli;
@@ -324,12 +340,12 @@ int fourd_field_to_string(FOURD_RESULT *res,unsigned int numCol,char **value,siz
 				s=milli/(1000);
 				milli-=s*(1000);
 
-				*value=calloc(24,sizeof(char));	
+				*value=calloc(24,sizeof(char));
 				sprintf_s(*value,24,"%0.4d/%0.2d/%0.2d %0.2d:%0.2d:%0.2d.%0.3d",t->year,t->mounth,t->day,h,m,s,milli);
 				*len=strlen(*value);
 				return 1;
 			}
-		case VK_STRING:
+			case VK_STRING:
 			{
 				FOURD_STRING *str=elmt->pValue;
 				int size=0;
@@ -340,17 +356,14 @@ int fourd_field_to_string(FOURD_RESULT *res,unsigned int numCol,char **value,siz
 				*len=str->length*2;
 				return 1;
 			}
-		case VK_BLOB:
-		case VK_IMAGE:
-			//Varying length
-			return 0;
-			break;
-		default:
+			case VK_BLOB:
+			case VK_IMAGE:
+				//Varying length
+				return 0;
+			default:
 				return 0; //since this is what would happen if it just fell out of the switch statement anyway.
-				break;
 		}
-		return 0;
-	} 
+	}
 	return 0;
 }
 
@@ -386,17 +399,17 @@ void fourd_free_statement(FOURD_STATEMENT *state){
 		free(state->query);
 		state->query=NULL;
 	}
-	
+
 	if(state->elmt!=NULL){
 		free(state->elmt);
 		state->elmt=NULL;
 	}
-	
+
 	if (state->preferred_image_types!=NULL){
 		free(state->preferred_image_types);
 		state->preferred_image_types=NULL;
 	}
-	
+
 	Free(state);
 }
 
@@ -405,26 +418,24 @@ FOURD_STATEMENT * fourd_prepare_statement(FOURD *cnx,const char *query)
 	FOURD_STATEMENT* state=NULL;
 	if(cnx==NULL || !cnx->connected || query==NULL)
 		return NULL;
-	
-	//if(_prepare_statement(cnx, 3, query)!=0)
-	//	return NULL;
-	
-	//try to prepare the statement. If it doesn't work, oh well.
-	_prepare_statement(cnx, 3, query);
-	
+
+	cnx->id_cnx++;
+	_prepare_statement(cnx, cnx->id_cnx, query);
+
 	state=calloc(1,sizeof(FOURD_STATEMENT));
 	state->cnx=cnx;
 	state->query=(char *)malloc(strlen(query)+1);
 
 	/* allocate arbitrarily five elements in this table */
-	state->nbAllocElement=5;
-	state->elmt=calloc(state->nbAllocElement,sizeof(FOURD_ELEMENT));	
+	//state->nbAllocElement=5;
+	//state->elmt=calloc(state->nbAllocElement,sizeof(FOURD_ELEMENT));
+	state->nbAllocElement=0;
 	state->nb_element=0;
-	
+
 	/* copy query into statement */
 	sprintf(state->query,"%s",query);
 	fourd_set_statement_preferred_image_types(state,cnx->preferred_image_types);
-	
+
 	return state;
 }
 
@@ -435,7 +446,7 @@ FOURD_STRING *fourd_create_string(char *param,int length){
 	cp->data=calloc(length,2);	/* 2 bytes per char */
 	cp->length=length;
 	memcpy(cp->data,param,length*2);  /* 2 bytes per char */
-	
+
 	return cp;
 }
 
@@ -460,12 +471,14 @@ int fourd_bind_param(FOURD_STATEMENT *state,unsigned int numParam,FOURD_TYPE typ
 	}
 	return 0;
 }
+
 FOURD_RESULT *fourd_exec_statement(FOURD_STATEMENT *state, int res_size)
 {
 	FOURD_RESULT *result=NULL;
 	result=calloc(1,sizeof(FOURD_RESULT));
 	result->cnx=state->cnx;
-	if(_query_param(state->cnx,6,state->query,state->nb_element,state->elmt,result,state->preferred_image_types,res_size)==0)
+	state->cnx->id_cnx++;
+	if(_query_param(state->cnx,state->cnx->id_cnx,state->query,state->nb_element,state->elmt,result,state->preferred_image_types,res_size)==0)
 	{
 		result->numRow=-1;
 		return result;
@@ -476,6 +489,7 @@ FOURD_RESULT *fourd_exec_statement(FOURD_STATEMENT *state, int res_size)
 		return NULL;
 	}
 }
+
 void fourd_set_preferred_image_types(FOURD* cnx,const char *types)
 {
 	if(cnx->preferred_image_types)	{
@@ -490,6 +504,7 @@ void fourd_set_preferred_image_types(FOURD* cnx,const char *types)
 	}
 
 }
+
 void fourd_set_statement_preferred_image_types(FOURD_STATEMENT *state,const char *types)
 {
 	if(state->preferred_image_types)	{
@@ -503,14 +518,17 @@ void fourd_set_statement_preferred_image_types(FOURD_STATEMENT *state,const char
 		state->preferred_image_types=NULL;
 	}
 }
+
 const char* fourd_get_preferred_image_types(FOURD* cnx)
 {
 	return cnx->preferred_image_types;
 }
+
 const char* fourd_get_statement_preferred_image_types(FOURD_STATEMENT *state)
 {
 	return state->preferred_image_types;
 }
+
 void fourd_timeout(FOURD* cnx,int timeout)
 {
 	cnx->timeout=timeout;

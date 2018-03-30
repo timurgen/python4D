@@ -1,4 +1,14 @@
 Python4D is a Python Database API 2.0 compliant driver for the 4D (4th Dimension) database server. As such, usage should be familiar to anyone who has used any python database modules before. This module is based off of a C library provided by 4D, and integrated with Python using CFFI. As such, installation of this module does require CFFI.
+v2.1 2018-03-30:
+ - Replace base64 library
+ - Support for UTF-8 query in base64
+ - Support for UTF-8 authentication in base64
+ - Support for UTF-8 fields encoded in bas64
+
+v2.0 2018-03-22:
+ - Implement VK_IMAGE
+ - Implement VK_FLOAT
+
 v1.9 2018-03-02:
  - Remove the wrap of all queries in a transaction block
 
