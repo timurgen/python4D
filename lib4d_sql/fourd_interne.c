@@ -473,6 +473,7 @@ int get(const char* msg,const char* section,char *value,int max_length)
 		int len_dec=0;
 		//value_decode=base64_decode(value,strlen(value),&len_dec);
 		value_decode=b64_decode(value,strlen(value));
+		len_dec=strlen(value_decode);
 		value_decode[len_dec]=0;
 		strncpy_s(value,max_length,(const char*)value_decode,(size_t)len_dec);
 		value[len_dec]=0;
@@ -609,8 +610,7 @@ int treate_header_response(FOURD_RESULT* state)
 	}
 	//get Column-Aliases-Base64
 	{
-		char *column_alias;
-		char *alias=NULL;
+		char *column_alias;char *alias=NULL;
 		unsigned int num=0;
 		char * col_start;
 		char * col_fin;
