@@ -46,7 +46,7 @@ int fourd_connect(FOURD *cnx,const char *host,const char *user,const char *passw
 
 		cnx->error_code=-1;
 		strncpy_s(cnx->error_string,ERROR_STRING_LENGTH,"Already connected",ERROR_STRING_LENGTH);
-		return 1;
+		return 2;
 	}
 
 	if(socket_connect_timeout(cnx,host,port,SOCKET_TIMEOUT))
@@ -57,7 +57,7 @@ int fourd_connect(FOURD *cnx,const char *host,const char *user,const char *passw
 		cnx->connected=0;
 		cnx->error_code=-1;
 		strncpy_s(cnx->error_string,ERROR_STRING_LENGTH,"Error during connection",ERROR_STRING_LENGTH);
-		return 1;
+		return 3;
 	}
 
 	if(dblogin(cnx,1,user,((password==NULL)?"":password),cnx->preferred_image_types)!=0)
@@ -71,7 +71,7 @@ int fourd_connect(FOURD *cnx,const char *host,const char *user,const char *passw
 			cnx->error_code=-1;
 			strncpy_s(cnx->error_string,ERROR_STRING_LENGTH,"Error during login",ERROR_STRING_LENGTH);
 		}
-		return 1;
+		return 4;
 	}
 
 	cnx->connected=1;

@@ -1,3 +1,4 @@
+
 typedef enum
 {
 	VK_UNKNOW=0,

@@ -64,7 +64,7 @@ int dblogin(FOURD *cnx,unsigned int id_cnx,const char *user,const char*pwd,const
 	//int len;
 	_clear_atrr_cnx(cnx);
 
-#if LOGIN_BASE64
+#if LOGIN_BASE64_ORIG
 	//user_b64=base64_encode(user,strlen(user),&len);
 	user_b64=b64_encode(user ,strlen(user));
 	//pwd_b64=base64_encode(pwd,strlen(pwd),&len);

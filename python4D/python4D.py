@@ -675,7 +675,7 @@ class python4D_connection:
                                             port)
         if connected != 0:
             self.connected = False
-            raise OperationalError("Unable to connect to 4D Server!")
+            raise OperationalError("Unable to connect to 4D Server! Status returned: "+ str(connected))
         else:
             self.connected = True
             self.__private_cursor__ = self.cursor()
@@ -702,7 +702,7 @@ class python4D_connection:
         if self.in_transaction:
             self.__private_cursor__.execute("ROLLBACK")
 
-        if self.cursors:
+        if hasattr(self, 'cursors') and self.cursors:
             for cursor in self.cursors:
                 if cursor.result is not None and cursor.result != ffi.NULL:
                     lib4d_sql.fourd_free_result(cursor.result)

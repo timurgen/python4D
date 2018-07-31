@@ -17,6 +17,11 @@
 	#include <unistd.h> /* close */
 	#include <errno.h>
 	#include <netdb.h> /* gethostbyname */
+
+
+	#include <openssl/ssl.h>
+	#include <openssl/err.h>
+
 	#define INVALID_SOCKET -1
 	#define SOCKET_ERROR -1
 	#define closesocket(s) close(s)
@@ -139,6 +144,10 @@ typedef struct{
 	/* PREFERRED-IMAGE-TYPES */
 	char *preferred_image_types;
 	int timeout;
+	
+	/*SSL connection*/
+	SSL_CTX *ctx;
+	SSL *ssl;
 
 }FOURD;
 

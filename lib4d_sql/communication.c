@@ -6,6 +6,31 @@
 #include <fcntl.h>
 #endif
 
+#define USE_SSL true
+
+#ifdef USE_SSL
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+
+
+/*Init SSL*/
+SSL_CTX* InitCTX(void)
+{   SSL_METHOD *method;
+    SSL_CTX *ctx;
+
+    OpenSSL_add_all_algorithms();		/* Load cryptos, et.al. */
+    SSL_load_error_strings();			/* Bring in and register error messages */
+    method = SSLv2_client_method();		/* Create new client-method instance */
+    ctx = SSL_CTX_new(method);			/* Create new context */
+    if ( ctx == NULL )
+    {
+        ERR_print_errors_fp(stderr);
+        abort();
+    }
+    return ctx;
+}
+#endif
+
 long frecv(SOCKET s,unsigned char *buf,int len,int flags)
 {
 	int rec=0;
@@ -97,6 +122,17 @@ int socket_connect(FOURD *cnx,const char *host,unsigned int port)
 		return 1;
 	}
 
+	//SSL set up
+#ifdef USE_SSL
+	cnx->ctx = InitCTX();
+	cnx->ssl = SSL_new(cnx->ctx);
+	SSL_set_fd(cnx->ssl, cnx->socket);
+	if ( SSL_connect(cnx->ssl) == -1){			/* perform the connection */
+    	    Printf("Unable to create SSL connection\n");
+	    return 1;
+	}
+#endif
+
 	return 0;
 }
 
@@ -113,8 +149,12 @@ void socket_disconnect(FOURD *cnx)
 		return ;
 	}
 #endif
+	
 	closesocket(cnx->socket);
 	cnx->connected=0;
+#ifdef USE_SSL
+	SSL_CTX_free(cnx->ctx);
+#endif
 }
 
 int socket_send(FOURD *cnx,const char*msg)
@@ -122,8 +162,11 @@ int socket_send(FOURD *cnx,const char*msg)
 	long iResult;
 	if (VERBOSE == 1)
 		Printf("Send:\n%s",msg);
-
+#ifdef USE_SSl
+	iResult = SSL_write(cnx->ssl, msg, (int)strlen(msg));
+#else
 	iResult = send( cnx->socket, msg, (int)strlen(msg), 0 );
+#endif
 	if (iResult == SOCKET_ERROR) {
 		if (VERBOSE == 1)
 			Printf("Send failed: %d\n", WSAGetLastError());
@@ -146,7 +189,11 @@ int socket_send_data(FOURD *cnx,const char*msg,int len)
 	}
 
 	// Send an initial buffer
+#ifdef USE_SSL
+	iResult = SSL_write(cnx->ssl, msg, len);
+#else
 	iResult = send( cnx->socket, msg, len, 0 );
+#endif
 	if (iResult == SOCKET_ERROR) {
 
 		if (VERBOSE == 1)
